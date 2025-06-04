@@ -11,7 +11,9 @@ class CameraInitial extends CameraState {}
 
 class CameraLoading extends CameraState {}
 
-class CameraReady extends CameraState {
+enum CameraStatus { ready, capturing }
+
+class CameraActive extends CameraState {
   final CameraController controller;
   final double currentZoom;
   final double minZoom;
@@ -19,8 +21,9 @@ class CameraReady extends CameraState {
   final bool isFlashOn;
   final bool showInstruction;
   final Rect captureRect;
+  final CameraStatus status;
 
-  const CameraReady(
+  const CameraActive(
     this.controller, {
     this.currentZoom = 1.0,
     this.minZoom = 1.0,
@@ -28,9 +31,10 @@ class CameraReady extends CameraState {
     this.isFlashOn = false,
     this.showInstruction = false,
     this.captureRect = const Rect.fromLTWH(0, 0, 224, 224),
+    this.status = CameraStatus.ready,
   });
 
-  CameraReady copyWith({
+  CameraActive copyWith({
     CameraController? controller,
     double? currentZoom,
     double? minZoom,
@@ -38,8 +42,9 @@ class CameraReady extends CameraState {
     bool? isFlashOn,
     bool? showInstruction,
     Rect? captureRect,
+    CameraStatus? status,
   }) {
-    return CameraReady(
+    return CameraActive(
       controller ?? this.controller,
       currentZoom: currentZoom ?? this.currentZoom,
       minZoom: minZoom ?? this.minZoom,
@@ -47,8 +52,13 @@ class CameraReady extends CameraState {
       isFlashOn: isFlashOn ?? this.isFlashOn,
       showInstruction: showInstruction ?? this.showInstruction,
       captureRect: captureRect ?? this.captureRect,
+      status: status ?? this.status,
     );
   }
+
+  // Удобные геттеры
+  bool get isReady => status == CameraStatus.ready;
+  bool get isCapturing => status == CameraStatus.capturing;
 
   @override
   List<Object> get props => [
@@ -59,6 +69,7 @@ class CameraReady extends CameraState {
         isFlashOn,
         showInstruction,
         captureRect,
+        status,
       ];
 }
 

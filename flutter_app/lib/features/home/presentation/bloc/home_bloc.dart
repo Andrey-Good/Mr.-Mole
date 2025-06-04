@@ -7,10 +7,10 @@ part 'home_event.dart';
 part 'home_state.dart';
 
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
-  final Future<List<CameraDescription>> camerasFuture;
+  final List<CameraDescription> cameras;
   final ImagePicker _picker = ImagePicker();
 
-  HomeBloc(this.camerasFuture) : super(HomeInitial()) {
+  HomeBloc(this.cameras) : super(HomeInitial()) {
     on<OpenGalleryEvent>(_onOpenGallery);
     on<OpenCameraEvent>(_onOpenCamera);
     on<OpenSettingsEvent>(_onOpenSettings);
@@ -46,13 +46,11 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           throw Exception('Неподдерживаемый формат изображения');
         }
 
-        print('Selected image: ${photo.path}, size: $fileSize bytes');
         emit(GalleryImageSelected(photo.path));
       } else {
         emit(HomeInitial());
       }
     } catch (e) {
-      print('Gallery error: $e');
       emit(HomeError('Ошибка галереи: ${e.toString()}', source: 'gallery'));
     }
   }
@@ -63,7 +61,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   ) async {
     try {
       emit(HomeLoading());
-      final cameras = await camerasFuture;
 
       if (cameras.isEmpty) {
         emit(HomeError('Камера недоступна', source: 'camera'));

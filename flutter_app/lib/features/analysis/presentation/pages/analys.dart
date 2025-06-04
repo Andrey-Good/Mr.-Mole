@@ -1,191 +1,179 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mr_mole/features/analysis/presentation/bloc/analysis_bloc.dart';
 import 'package:mr_mole/core/utils/notification.dart';
 import 'package:mr_mole/features/home/data/repositories/scan_history_repository.dart';
+import 'package:mr_mole/core/widgets/common_widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mr_mole/core/constants/app_colors.dart';
 
 class AnalysisScreen extends StatelessWidget {
   final String imagePath;
   final NotificationService notificationService;
   final VoidCallback onRetake;
+  final String? presetMoleLocation;
+  final String? replaceHistoryItemId;
 
   const AnalysisScreen({
     super.key,
     required this.imagePath,
     required this.notificationService,
     required this.onRetake,
+    this.presetMoleLocation,
+    this.replaceHistoryItemId,
   });
 
-  void _handleBack(BuildContext context) {
-    onRetake();
-  }
+  void _showSaveMoleDialog(BuildContext context, String result) {
+    final TextEditingController locationController = TextEditingController(
+      text: presetMoleLocation ?? '',
+    );
 
-  // Метод для возврата на главный экран
-  void _navigateToHome(BuildContext context) {
-    // Закрываем все экраны до главного (первого)
-    Navigator.of(context).popUntil((route) => route.isFirst);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => AnalysisBloc(
-        imagePath: imagePath,
-        notificationService: notificationService,
-        historyRepository: ScanHistoryRepository(),
-      )..add(AnalyzeImageEvent()),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Анализ'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => _handleBack(context),
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBackground,
+        title: CommonWidgets.titleText(
+          'Где находится родинка?',
+        ),
+        content: TextField(
+          controller: locationController,
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: const InputDecoration(
+            hintText: 'Например: левая рука, спина, лицо...',
+            hintStyle: TextStyle(color: AppColors.textForDetail),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: AppColors.textForDetail),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: AppColors.textForDetail),
+            ),
           ),
         ),
-        body: BlocBuilder<AnalysisBloc, AnalysisState>(
-          builder: (context, state) {
-            if (state is AnalysisInitial) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            }
-
-            if (state is AnalysisLoading) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Анализируем изображение...'),
-                  ],
-                ),
-              );
-            }
-
-            if (state is AnalysisSuccess) {
-              return SingleChildScrollView(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 32),
-                    _buildImagePreview(),
-                    const SizedBox(height: 32),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        state.result,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.read<AnalysisBloc>().add(SaveResultEvent());
-                        // Возвращаемся на главную страницу вместо предыдущего экрана
-                        _navigateToHome(context);
-                      },
-                      child: const Text('Сохранить результат'),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
-              );
-            }
-
-            if (state is AnalysisError) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.red,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      state.message,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        color: Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Загрузка...'),
-                ],
-              ),
-            );
-          },
-        ),
+        actions: [
+          CommonWidgets.commonButton(
+            text: 'Отмена',
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+          CommonWidgets.commonButton(
+            text: 'Сохранить',
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.read<AnalysisBloc>().add(
+                    SaveResultEvent(
+                        moleLocation: locationController.text.trim()),
+                  );
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+          ),
+        ],
       ),
     );
   }
 
-  // Специальный виджет для правильного отображения анализируемого изображения
-  Widget _buildImagePreview() {
-    final imageFile = File(imagePath);
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    // Проверяем существование файла
-    if (!imageFile.existsSync()) {
-      return Container(
-        width: 224,
-        height: 224,
-        decoration: BoxDecoration(
-          color: Colors.grey[300],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Center(
-          child: Text(
-            'Ошибка загрузки изображения',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
+        return BlocProvider(
+          create: (context) => AnalysisBloc(
+            imagePath: imagePath,
+            notificationService: notificationService,
+            historyRepository: ScanHistoryRepository(),
+            prefs: snapshot.data!,
+            replaceHistoryItemId: replaceHistoryItemId,
+          )..add(AnalyzeImageEvent()),
+          child: PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (!didPop) {
+                onRetake();
+              }
+            },
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              extendBodyBehindAppBar: true,
+              appBar: CommonWidgets.commonAppBar(
+                title: 'Анализ родинки',
+                onBackPressed: onRetake,
+              ),
+              body: CommonWidgets.backgroundGradient(
+                child: BlocBuilder<AnalysisBloc, AnalysisState>(
+                  builder: (context, state) {
+                    if (state is AnalysisInitial) {
+                      return CommonWidgets.loadingIndicator();
+                    }
 
-    return Column(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[300]!, width: 1),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.file(
-              imageFile,
-              width: 224,
-              height: 224,
-              fit: BoxFit.none, // Важно: не масштабировать изображение
-              alignment: Alignment.center,
+                    if (state is AnalysisLoading) {
+                      return CommonWidgets.loadingIndicator();
+                    }
+
+                    if (state is AnalysisSuccess) {
+                      return SingleChildScrollView(
+                        padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).padding.top +
+                              kToolbarHeight +
+                              16,
+                          left: 16.0,
+                          right: 16.0,
+                          bottom: 16.0,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 32),
+                            _buildImagePreview(),
+                            const SizedBox(height: 32),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: CommonWidgets.titleText(
+                                state.result,
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            CommonWidgets.commonButton(
+                              text: 'Сохранить результат',
+                              onPressed: () {
+                                _showSaveMoleDialog(context, state.result);
+                              },
+                            ),
+                            const SizedBox(height: 32),
+                          ],
+                        ),
+                      );
+                    }
+
+                    if (state is AnalysisError) {
+                      return CommonWidgets.errorWidget(
+                        message: state.message,
+                      );
+                    }
+
+                    return CommonWidgets.loadingIndicator();
+                  },
+                ),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Обрезанное изображение 224×224 пикселей',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
+        );
+      },
+    );
+  }
+
+  Widget _buildImagePreview() {
+    return CommonWidgets.commonImage(
+      imagePath: imagePath,
+      width: 224,
+      height: 224,
+      borderRadius: BorderRadius.circular(12),
+      backgroundColor: Colors.grey[300],
     );
   }
 }

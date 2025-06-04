@@ -9,4 +9,11 @@ abstract class AnalysisEvent extends Equatable {
 
 class AnalyzeImageEvent extends AnalysisEvent {}
 
-class SaveResultEvent extends AnalysisEvent {}
+class SaveResultEvent extends AnalysisEvent {
+  final String? moleLocation;
+
+  const SaveResultEvent({this.moleLocation});
+
+  @override
+  List<Object> get props => [moleLocation ?? ''];
+}

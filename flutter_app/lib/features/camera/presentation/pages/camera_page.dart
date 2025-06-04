@@ -2,21 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mr_mole/features/camera/presentation/bloc/camera_bloc.dart';
-import 'package:mr_mole/features/analysis/presentation/pages/analys.dart';
 import 'package:mr_mole/core/utils/notification.dart';
 import 'package:mr_mole/features/camera/presentation/widgets/camera_controls.dart';
 import 'package:mr_mole/features/camera/presentation/widgets/camera_preview.dart';
-import 'package:mr_mole/features/home/data/repositories/scan_history_repository.dart';
+import 'package:mr_mole/features/camera/presentation/widgets/instruction_overlay.dart';
+import 'package:mr_mole/features/camera/presentation/constants/camera_constants.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:mr_mole/core/widgets/common_widgets.dart';
 
 class CameraPage extends StatefulWidget {
   final List<CameraDescription> cameras;
   final NotificationService notificationService;
+  final String? presetMoleLocation;
+  final String? replaceHistoryItemId;
 
   const CameraPage({
     super.key,
     required this.cameras,
     required this.notificationService,
+    this.presetMoleLocation,
+    this.replaceHistoryItemId,
   });
 
   @override
@@ -24,26 +29,30 @@ class CameraPage extends StatefulWidget {
 }
 
 class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
-  late CameraBloc _cameraBloc;
+  CameraBloc? _cameraBloc;
   bool _isPermissionRequested = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _cameraBloc = CameraBloc(widget.cameras);
     _requestPermissions();
   }
 
   Future<void> _requestPermissions() async {
-    // Запрашиваем разрешение на камеру
     final cameraStatus = await Permission.camera.request();
 
     _isPermissionRequested = true;
 
     if (cameraStatus.isGranted) {
-      _cameraBloc.add(CameraInitializeEvent());
-    } else {
+      if (_cameraBloc == null) {
+        _cameraBloc = CameraBloc(widget.cameras);
+        if (mounted) {
+          setState(() {});
+        }
+      }
+      _cameraBloc?.add(CameraInitializeEvent());
+    } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Для работы приложения необходим доступ к камере'),
@@ -57,43 +66,47 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Перезапускаем камеру при возвращении из фона
-    if (state == AppLifecycleState.resumed && _isPermissionRequested) {
-      _cameraBloc.add(CameraInitializeEvent());
+    if (state == AppLifecycleState.resumed &&
+        _isPermissionRequested &&
+        _cameraBloc != null) {
+      if (_cameraBloc!.state is ImageCaptured) {
+        _cameraBloc!.add(ResetStateEvent());
+      } else {
+        _cameraBloc!.add(CameraInitializeEvent());
+      }
     }
-  }
-
-  void _handleBack() {
-    Navigator.of(context).pop();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _cameraBloc.add(CameraDisposeEvent());
-    _cameraBloc.close();
+    _cameraBloc?.add(CameraDisposeEvent());
+    _cameraBloc?.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_cameraBloc == null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        extendBodyBehindAppBar: true,
+        appBar: CommonWidgets.commonAppBar(
+          title: '',
+          onBackPressed: () => Navigator.of(context).pop(),
+        ),
+        body: Center(
+          child: CommonWidgets.loadingIndicator(),
+        ),
+      );
+    }
+
     return BlocProvider.value(
-      value: _cameraBloc,
+      value: _cameraBloc!,
       child: BlocListener<CameraBloc, CameraState>(
         listener: (context, state) {
           if (state is ImageCaptured) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => AnalysisScreen(
-                  imagePath: state.imagePath,
-                  notificationService: widget.notificationService,
-                  onRetake: () {
-                    Navigator.of(context).pop();
-                    _cameraBloc.add(CameraInitializeEvent());
-                  },
-                ),
-              ),
-            );
+            Navigator.of(context).pop(state.imagePath);
           } else if (state is CameraError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -104,12 +117,11 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
           }
         },
         child: Scaffold(
-          appBar: AppBar(
-            title: const Text('Камера'),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: _handleBack,
-            ),
+          backgroundColor: Colors.black,
+          extendBodyBehindAppBar: true,
+          appBar: CommonWidgets.commonAppBar(
+            title: '',
+            onBackPressed: () => Navigator.of(context).pop(),
           ),
           body: _buildCameraPreview(),
         ),
@@ -121,78 +133,66 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     return BlocBuilder<CameraBloc, CameraState>(
       builder: (context, state) {
         if (state is CameraInitial) {
-          return const Center(
-            child: CircularProgressIndicator(),
+          return Center(
+            child: CommonWidgets.loadingIndicator(),
           );
         }
 
         if (state is CameraLoading) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Инициализация камеры...'),
-              ],
-            ),
+          return Center(
+            child: CommonWidgets.loadingIndicator(),
           );
         }
 
         if (state is CameraError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  color: Colors.red,
-                  size: 48,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  state.message,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.red,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {
-                    _cameraBloc.add(CameraInitializeEvent());
-                  },
-                  child: const Text('Попробовать снова'),
-                ),
-              ],
-            ),
+          return CommonWidgets.errorWidget(
+            message: state.message,
           );
         }
 
-        if (state is CameraReady) {
-          return SafeArea(
-            child: Stack(
-              children: [
-                Container(
-                  color: Colors.black,
-                  width: MediaQuery.of(context).size.width,
-                  height: MediaQuery.of(context).size.height,
-                  child: CameraPreviewWidget(
-                    controller: state.controller,
-                    showInstruction: state.showInstruction,
-                    onCloseInstruction: () {
-                      context.read<CameraBloc>().add(ToggleInstructionEvent());
-                    },
-                  ),
+        if (state is CameraActive) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned.fill(
+                child: CameraPreviewWidget(
+                  controller: state.controller,
                 ),
-                Positioned(
-                  bottom: 30,
-                  left: 0,
-                  right: 0,
+              ),
+              const Positioned(
+                bottom: CameraConstants.controlsBottomOffset,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  top: false,
                   child: CameraControls(),
                 ),
-              ],
-            ),
+              ),
+              if (state.showInstruction)
+                InstructionOverlay(
+                  onClose: () {
+                    context.read<CameraBloc>().add(ToggleInstructionEvent());
+                  },
+                ),
+              if (state.isCapturing)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                          SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           );
         }
 

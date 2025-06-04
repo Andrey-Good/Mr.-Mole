@@ -6,19 +6,22 @@ import 'package:mr_mole/features/camera/presentation/pages/camera_page.dart';
 import 'package:mr_mole/features/settings/presentation/pages/settings_page.dart';
 import 'package:mr_mole/features/analysis/presentation/pages/analys.dart';
 import 'package:mr_mole/core/utils/notification.dart';
-import 'package:mr_mole/features/image_processing/presentation/pages/mole_confirmation_screen.dart';
+import 'package:mr_mole/features/camera/presentation/pages/mole_confirmation_screen.dart';
 import 'package:mr_mole/features/home/presentation/widgets/main_tab.dart';
 import 'package:mr_mole/features/home/presentation/widgets/history_tab.dart';
 import 'package:mr_mole/features/home/presentation/widgets/faq_tab.dart';
-import 'package:mr_mole/features/home/data/repositories/scan_history_repository.dart';
+import 'package:mr_mole/core/constants/app_colors.dart';
+import 'package:mr_mole/core/widgets/common_widgets.dart';
+import 'package:mr_mole/features/home/presentation/pages/history_detail_page.dart';
+import 'package:mr_mole/features/home/domain/models/scan_history_item.dart';
 
 class HomePage extends StatefulWidget {
-  final Future<List<CameraDescription>> camerasFuture;
+  final List<CameraDescription> cameras;
   final NotificationService notificationService;
 
   const HomePage({
     super.key,
-    required this.camerasFuture,
+    required this.cameras,
     required this.notificationService,
   });
 
@@ -35,7 +38,7 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
-    _homeBloc = HomeBloc(widget.camerasFuture);
+    _homeBloc = HomeBloc(widget.cameras);
     _pageController = PageController(initialPage: 1);
   }
 
@@ -52,35 +55,26 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  void _navigateToAnalysis(String imagePath) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AnalysisScreen(
-          imagePath: imagePath,
-          notificationService: widget.notificationService,
-          onRetake: () {
-            Navigator.of(context).pop();
-          },
-        ),
-      ),
-    ).then((_) {
-      _resetToMainTab();
-    });
-  }
-
-  Future<void> _navigateToCamera(List<CameraDescription> cameras) async {
-    await Navigator.push(
+  Future<void> _navigateToCamera(List<CameraDescription> cameras,
+      {String? presetMoleLocation, String? replaceHistoryItemId}) async {
+    final String? croppedPath = await Navigator.push<String>(
       context,
       MaterialPageRoute(
         builder: (context) => CameraPage(
           cameras: cameras,
           notificationService: widget.notificationService,
+          presetMoleLocation: presetMoleLocation,
+          replaceHistoryItemId: replaceHistoryItemId,
         ),
       ),
-    ).then((_) {
+    );
+
+    if (croppedPath != null) {
+      _navigateToAnalysisWithPreset(croppedPath, presetMoleLocation,
+          replaceHistoryItemId: replaceHistoryItemId);
+    } else {
       _resetToMainTab();
-    });
+    }
   }
 
   Future<void> _navigateToSettings() async {
@@ -92,19 +86,58 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  void _navigateToConfirmation(String imagePath) {
-    Navigator.push(
+  void _navigateToConfirmation(String imagePath,
+      {String? presetMoleLocation}) async {
+    final String? croppedPath = await Navigator.push<String>(
       context,
       MaterialPageRoute(
         builder: (context) => MoleConfirmationScreen(
           imagePath: imagePath,
           notificationService: widget.notificationService,
-          onConfirm: (String croppedPath) {
-            _navigateToAnalysis(croppedPath);
-          },
-          onCancel: () {
+          presetMoleLocation: presetMoleLocation,
+        ),
+      ),
+    );
+
+    if (croppedPath != null) {
+      _navigateToAnalysisWithPreset(croppedPath, presetMoleLocation);
+    } else {
+      _resetToMainTab();
+    }
+  }
+
+  void _navigateToAnalysisWithPreset(
+      String imagePath, String? presetMoleLocation,
+      {String? replaceHistoryItemId}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AnalysisScreen(
+          imagePath: imagePath,
+          notificationService: widget.notificationService,
+          presetMoleLocation: presetMoleLocation,
+          replaceHistoryItemId: replaceHistoryItemId,
+          onRetake: () {
             Navigator.of(context).pop();
-            _resetToMainTab();
+          },
+        ),
+      ),
+    ).then((_) {
+      _resetToMainTab();
+    });
+  }
+
+  void _navigateToHistoryDetail(ScanHistoryItem item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => HistoryDetailPage(
+          item: item,
+          onRescanPressed: () {
+            Navigator.of(context).pop();
+            _navigateToCamera(widget.cameras,
+                presetMoleLocation: item.moleLocation,
+                replaceHistoryItemId: item.id);
           },
         ),
       ),
@@ -150,78 +183,59 @@ class _HomePageState extends State<HomePage>
           }
         },
         child: Scaffold(
-          appBar: AppBar(
-            title: const Text('Mr. Mole'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: () => _homeBloc.add(OpenSettingsEvent()),
-              ),
-            ],
-          ),
-          body: BlocBuilder<HomeBloc, HomeState>(
-            builder: (context, state) {
-              if (state is HomeLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
-              }
+          body: CommonWidgets.backgroundGradient(
+            child: BlocBuilder<HomeBloc, HomeState>(
+              builder: (context, state) {
+                if (state is HomeLoading) {
+                  return CommonWidgets.loadingIndicator();
+                }
 
-              if (state is HomeError) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        color: Colors.red,
-                        size: 48,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        state.message,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          color: Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
+                if (state is HomeError) {
+                  return CommonWidgets.errorWidget(
+                    message: state.message,
+                  );
+                }
 
-              return PageView(
-                controller: _pageController,
-                onPageChanged: _onPageChanged,
-                children: [
-                  const HistoryTab(),
-                  MainTab(
-                    homeBloc: _homeBloc,
-                  ),
-                  const FAQTab(),
-                ],
-              );
-            },
+                return PageView(
+                  controller: _pageController,
+                  onPageChanged: _onPageChanged,
+                  children: [
+                    HistoryTab(
+                      onItemTap: _navigateToHistoryDetail,
+                    ),
+                    MainTab(
+                      homeBloc: _homeBloc,
+                    ),
+                    const FAQTab(),
+                  ],
+                );
+              },
+            ),
           ),
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: _onItemTapped,
-            selectedItemColor: Theme.of(context).colorScheme.primary,
-            unselectedItemColor: Colors.grey,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.history),
-                label: 'История',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: 'Главная',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.question_answer),
-                label: 'FAQ',
-              ),
-            ],
+          bottomNavigationBar: CommonWidgets.reverseGradientBackground(
+            child: BottomNavigationBar(
+              backgroundColor: AppColors.transparent,
+              elevation: 0,
+              currentIndex: _currentIndex,
+              onTap: _onItemTapped,
+              selectedItemColor: AppColors.textPrimary,
+              unselectedItemColor: AppColors.textSecondary,
+              type: BottomNavigationBarType.fixed,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.history),
+                  label: 'История',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home),
+                  label: 'Главная',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.question_answer),
+                  label: 'FAQ',
+                ),
+              ],
+            ),
           ),
         ),
       ),

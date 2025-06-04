@@ -18,13 +18,13 @@ void main() {
 
   testWidgets('App initialization test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    final camerasFuture = CameraHandler.getAvailableCameras();
+    final camerasFuture = await CameraHandler.getAvailableCameras();
     final notificationsPlugin = FlutterLocalNotificationsPlugin();
     final notificationService = NotificationService(notificationsPlugin);
 
     await tester.pumpWidget(
       MyApp(
-        camerasFuture: camerasFuture,
+        cameras: camerasFuture,
         notificationService: notificationService,
       ),
     );

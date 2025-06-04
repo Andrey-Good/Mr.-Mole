@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:mr_mole/features/camera/presentation/constants/camera_constants.dart';
+import 'package:mr_mole/core/constants/app_colors.dart';
+import 'package:mr_mole/core/widgets/common_widgets.dart';
 
 class InstructionOverlay extends StatelessWidget {
   final VoidCallback onClose;
@@ -10,72 +13,75 @@ class InstructionOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: Colors.black.withOpacity(0.7),
-      child: Center(
-        child: Container(
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.all(20),
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 10,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Как сделать снимок родинки',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+    final screenSize = MediaQuery.of(context).size;
+
+    return GestureDetector(
+      onTap: onClose,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: AppColors.overlayDark,
+        child: Center(
+          child: CommonWidgets.commonCard(
+            backgroundColor: AppColors.instructionBackground,
+            margin: EdgeInsets.symmetric(
+              horizontal: screenSize.width *
+                  (1 - CameraConstants.instructionWidthPercent) /
+                  2,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    CommonWidgets.commonIcon(Icons.camera_alt),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: CommonWidgets.titleText(
+                        'Как сделать снимок родинки',
+                        textAlign: TextAlign.left,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: onClose,
+                      icon: CommonWidgets.commonIcon(Icons.close),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              const InstructionStep(
-                stepNumber: 1,
-                text: 'Расположите родинку в центре квадрата',
-              ),
-              const SizedBox(height: 12),
-              const InstructionStep(
-                stepNumber: 2,
-                text: 'Убедитесь, что освещение достаточное',
-              ),
-              const SizedBox(height: 12),
-              const InstructionStep(
-                stepNumber: 3,
-                text: 'Держите камеру на расстоянии 10-15 см от кожи',
-              ),
-              const SizedBox(height: 12),
-              const InstructionStep(
-                stepNumber: 4,
-                text: 'Нажмите кнопку фото для захвата изображения',
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: onClose,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                const SizedBox(height: 24),
+                const InstructionStep(
+                  icon: Icons.center_focus_strong,
+                  text: 'Поместите родинку в белую рамку',
                 ),
-                child: const Text('Понятно'),
-              ),
-            ],
+                const SizedBox(height: 16),
+                const InstructionStep(
+                  icon: Icons.wb_sunny,
+                  text: 'Обеспечьте хорошее освещение',
+                ),
+                const SizedBox(height: 16),
+                const InstructionStep(
+                  icon: Icons.straighten,
+                  text: 'Держите камеру на расстоянии 10-15 см',
+                ),
+                const SizedBox(height: 16),
+                const InstructionStep(
+                  icon: Icons.photo_size_select_actual,
+                  text: 'Родинка должна полностью помещаться в рамку',
+                ),
+                const SizedBox(height: 16),
+                const InstructionStep(
+                  icon: Icons.camera,
+                  text: 'Нажмите белую кнопку для съемки',
+                ),
+                const SizedBox(height: 24),
+                CommonWidgets.commonButton(
+                  text: 'Понятно',
+                  onPressed: onClose,
+                  backgroundColor: AppColors.cardBackground,
+                  textColor: AppColors.textSecondary,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -84,44 +90,29 @@ class InstructionOverlay extends StatelessWidget {
 }
 
 class InstructionStep extends StatelessWidget {
-  final int stepNumber;
+  final IconData icon;
   final String text;
 
   const InstructionStep({
     super.key,
-    required this.stepNumber,
+    required this.icon,
     required this.text,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.deepPurple,
-          ),
-          child: Center(
-            child: Text(
-              '$stepNumber',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
+        CommonWidgets.commonIcon(icon),
+        const SizedBox(width: 16),
         Expanded(
           child: Text(
             text,
             style: const TextStyle(
-              fontSize: 16,
-              height: 1.5,
+              fontSize: CameraConstants.instructionFontSize,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textPrimary,
+              height: 1.3,
             ),
           ),
         ),

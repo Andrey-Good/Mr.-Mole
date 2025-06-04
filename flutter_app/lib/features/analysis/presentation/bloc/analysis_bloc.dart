@@ -8,6 +8,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:mr_mole/core/utils/notification.dart';
 import 'package:mr_mole/core/utils/model_cache.dart';
 import 'package:mr_mole/features/home/data/repositories/scan_history_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 part 'analysis_event.dart';
 part 'analysis_state.dart';
@@ -16,13 +17,16 @@ class AnalysisBloc extends Bloc<AnalysisEvent, AnalysisState> {
   final String imagePath;
   final NotificationService notificationService;
   final ScanHistoryRepository historyRepository;
+  final SharedPreferences prefs;
+  final String? replaceHistoryItemId;
   Interpreter? _interpreter;
-  bool _isDisposed = false;
 
   AnalysisBloc({
     required this.imagePath,
     required this.notificationService,
     required this.historyRepository,
+    required this.prefs,
+    this.replaceHistoryItemId,
   }) : super(AnalysisInitial()) {
     on<AnalyzeImageEvent>(_onAnalyzeImage);
     on<SaveResultEvent>(_onSaveResult);
@@ -32,51 +36,32 @@ class AnalysisBloc extends Bloc<AnalysisEvent, AnalysisState> {
     AnalyzeImageEvent event,
     Emitter<AnalysisState> emit,
   ) async {
-    if (_isDisposed) return;
+    if (isClosed) return;
 
     try {
       emit(AnalysisLoading());
-      print('Начинаем загрузку модели...');
 
-      _interpreter = await ModelCache.getInstance('assets/model.tflite');
-      if (_isDisposed) {
-        ModelCache.release();
-        return;
-      }
-
-      print(
-          'Результат загрузки модели: ${_interpreter != null ? 'успешно' : 'ошибка'}');
-
+      _interpreter = ModelCache.interpreter;
       if (_interpreter == null) {
-        emit(AnalysisError('Модель не загружена'));
+        emit(const AnalysisError('Модель недоступна'));
         return;
       }
 
       final imageFile = File(imagePath);
       if (!await imageFile.exists()) {
-        emit(AnalysisError('Изображение не найдено'));
+        emit(const AnalysisError('Изображение не найдено'));
         return;
       }
 
       final imageBytes = await imageFile.readAsBytes();
       final image = img.decodeImage(imageBytes);
       if (image == null) {
-        emit(AnalysisError('Не удалось декодировать изображение'));
+        emit(const AnalysisError('Не удалось декодировать изображение'));
         return;
       }
-
-      if (_isDisposed) {
-        ModelCache.release();
-        return;
-      }
-
-      print('Изображение успешно загружено и декодировано');
 
       final inputShape = _interpreter!.getInputTensor(0).shape;
       final outputShape = _interpreter!.getOutputTensor(0).shape;
-
-      print('Размеры входного тензора: $inputShape');
-      print('Размеры выходного тензора: $outputShape');
 
       final inputBuffer =
           Float32List(inputShape[1] * inputShape[2] * inputShape[3]);
@@ -95,29 +80,20 @@ class AnalysisBloc extends Bloc<AnalysisEvent, AnalysisState> {
         }
       }
 
-      if (_isDisposed) {
-        ModelCache.release();
-        return;
-      }
-
-      print('Запускаем инференс модели...');
       _interpreter!.run(inputBuffer.buffer, outputBuffer.buffer);
-      print('Инференс завершен');
 
-      if (_isDisposed) {
-        ModelCache.release();
-        return;
+      final probability = outputBuffer[0];
+      final result = probability < 0.3
+          ? 'Отрицательный.'
+          : probability < 0.7
+              ? 'Возможны признаки меланомы. Рекомендуется консультация врача.'
+              : 'Высокая вероятность меланомы. Срочно обратитесь к врачу!';
+
+      if (!isClosed) {
+        emit(AnalysisSuccess(result));
       }
-
-      final result = outputBuffer[0] > 0.5
-          ? 'Обнаружены признаки меланомы. Рекомендуется обратиться к врачу.'
-          : 'Признаков меланомы не обнаружено.';
-
-      emit(AnalysisSuccess(result));
-    } catch (e, stackTrace) {
-      print('Ошибка при анализе: $e');
-      print('Stack trace: $stackTrace');
-      if (!_isDisposed) {
+    } catch (e) {
+      if (!isClosed) {
         emit(AnalysisError('Ошибка при анализе: ${e.toString()}'));
       }
     }
@@ -127,36 +103,66 @@ class AnalysisBloc extends Bloc<AnalysisEvent, AnalysisState> {
     SaveResultEvent event,
     Emitter<AnalysisState> emit,
   ) async {
-    if (_isDisposed) return;
+    if (isClosed) return;
 
     try {
       if (state is AnalysisSuccess) {
         final result = (state as AnalysisSuccess).result;
 
-        // Показываем уведомление
-        await notificationService.showNotification(
-          title: 'Результат анализа',
-          body: result,
-        );
+        bool saveSuccess = false;
+        if (replaceHistoryItemId != null) {
+          saveSuccess = await historyRepository.replaceInHistory(
+            replaceHistoryItemId!,
+            imagePath,
+            result,
+            moleLocation: event.moleLocation,
+          );
+        } else {
+          saveSuccess = await historyRepository.addToHistory(
+            imagePath,
+            result,
+            moleLocation: event.moleLocation,
+          );
+        }
 
-        // Сохраняем в историю
-        await historyRepository.addToHistory(imagePath, result);
+        if (!saveSuccess) {
+          final errorMessage = historyRepository.lastError ??
+              'Неизвестная ошибка при сохранении';
+          emit(AnalysisError('Не удалось сохранить результат: $errorMessage'));
+          return;
+        }
 
-        print('Результат анализа сохранен в историю');
+        await _scheduleReminders(emit);
+      } else {
+        emit(AnalysisError(
+            'ОШИБКА: Состояние не AnalysisSuccess, текущее: ${state.runtimeType}'));
       }
     } catch (e) {
-      print('Ошибка при сохранении результата: $e');
-      if (!_isDisposed) {
+      if (!isClosed) {
         emit(
             AnalysisError('Ошибка при сохранении результата: ${e.toString()}'));
       }
     }
   }
 
-  @override
-  Future<void> close() async {
-    _isDisposed = true;
-    ModelCache.release();
-    return super.close();
+  Future<void> _scheduleReminders(Emitter<AnalysisState> emit) async {
+    try {
+      final notificationsEnabled = prefs.getBool('notifications') ?? true;
+      if (!notificationsEnabled) return;
+
+      final durationMonths = prefs.getInt('notification_duration') ?? 3;
+      final now = DateTime.now();
+
+      await notificationService.scheduleNotification(
+        title: 'Напоминание о проверке родинок',
+        body: 'Время для регулярной проверки родинок',
+        scheduledDate: now.add(Duration(days: durationMonths * 30)),
+        id: 1001,
+      );
+    } catch (e) {
+      if (!isClosed) {
+        emit(AnalysisError('Ошибка при планировании напоминаний: $e'));
+      }
+    }
   }
 }

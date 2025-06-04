@@ -5,42 +5,42 @@ class ScanHistoryItem {
   final String imagePath;
   final String result;
   final DateTime timestamp;
+  final String? moleLocation;
 
   ScanHistoryItem({
     required this.id,
     required this.imagePath,
     required this.result,
     required this.timestamp,
+    this.moleLocation,
   });
 
-  // Создание из JSON
   factory ScanHistoryItem.fromJson(Map<String, dynamic> json) {
     return ScanHistoryItem(
       id: json['id'],
       imagePath: json['imagePath'],
       result: json['result'],
       timestamp: DateTime.parse(json['timestamp']),
+      moleLocation: json['moleLocation'],
     );
   }
 
-  // Преобразование в JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'imagePath': imagePath,
       'result': result,
       'timestamp': timestamp.toIso8601String(),
+      'moleLocation': moleLocation,
     };
   }
 
-  // Преобразование объекта в строку для сохранения
   static String encode(List<ScanHistoryItem> items) {
     return json.encode(
       items.map<Map<String, dynamic>>((item) => item.toJson()).toList(),
     );
   }
 
-  // Преобразование строки в список объектов
   static List<ScanHistoryItem> decode(String items) {
     return (json.decode(items) as List<dynamic>)
         .map<ScanHistoryItem>((item) => ScanHistoryItem.fromJson(item))

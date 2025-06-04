@@ -18,10 +18,6 @@ class CaptureImageEvent extends CameraEvent {
   List<Object> get props => [screenSize];
 }
 
-class SwitchCameraEvent extends CameraEvent {}
-
-class ResetCameraEvent extends CameraEvent {}
-
 class CameraDisposeEvent extends CameraEvent {}
 
 class ZoomChangedEvent extends CameraEvent {
@@ -36,3 +32,5 @@ class ZoomChangedEvent extends CameraEvent {
 class ToggleFlashEvent extends CameraEvent {}
 
 class ToggleInstructionEvent extends CameraEvent {}
+
+class ResetStateEvent extends CameraEvent {}

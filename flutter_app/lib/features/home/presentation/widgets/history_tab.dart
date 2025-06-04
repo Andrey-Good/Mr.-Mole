@@ -1,14 +1,21 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:mr_mole/features/home/domain/models/scan_history_item.dart';
 import 'package:mr_mole/features/home/presentation/bloc/history_bloc.dart';
-import 'package:mr_mole/features/home/presentation/pages/history_detail_page.dart';
 import 'package:mr_mole/features/home/data/repositories/scan_history_repository.dart';
+import 'package:mr_mole/core/constants/app_colors.dart';
+import 'package:mr_mole/core/widgets/common_widgets.dart';
 
 class HistoryTab extends StatefulWidget {
-  const HistoryTab({super.key});
+  final Function(ScanHistoryItem)? onItemTap;
+  final ScanHistoryRepository? repository;
+
+  const HistoryTab({
+    super.key,
+    this.onItemTap,
+    this.repository,
+  });
 
   @override
   State<HistoryTab> createState() => _HistoryTabState();
@@ -16,13 +23,13 @@ class HistoryTab extends StatefulWidget {
 
 class _HistoryTabState extends State<HistoryTab> {
   late HistoryBloc _historyBloc;
+  late ScanHistoryRepository _repository;
 
   @override
   void initState() {
     super.initState();
-    _historyBloc = HistoryBloc(
-      ScanHistoryRepository(),
-    )..add(LoadHistoryEvent());
+    _repository = widget.repository ?? ScanHistoryRepository();
+    _historyBloc = HistoryBloc(_repository)..add(LoadHistoryEvent());
   }
 
   @override
@@ -35,44 +42,74 @@ class _HistoryTabState extends State<HistoryTab> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Удаление записи'),
-        content:
-            const Text('Вы уверены, что хотите удалить эту запись из истории?'),
+        backgroundColor: AppColors.cardBackground,
+        title: CommonWidgets.titleText(
+          'Удаление записи',
+        ),
+        content: CommonWidgets.subtitleText(
+          'Вы уверены, что хотите удалить эту запись из истории?',
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
-              _historyBloc.add(RemoveHistoryItemEvent(id));
-              Navigator.of(context).pop();
-            },
-            child: const Text('Удалить'),
+          Row(
+            children: [
+              Expanded(
+                child: CommonWidgets.commonButton(
+                  text: 'Отмена',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: CommonWidgets.commonButton(
+                  text: 'Удалить',
+                  onPressed: () {
+                    _historyBloc.add(RemoveHistoryItemEvent(id));
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  void _showClearHistoryDialog(BuildContext context) {
+  void _showDeleteAllHistoryDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Очистка истории'),
-        content: const Text(
-            'Вы уверены, что хотите удалить всю историю сканирований?'),
+        backgroundColor: AppColors.cardBackground,
+        title: CommonWidgets.titleText(
+          'Очистка истории',
+        ),
+        content: CommonWidgets.subtitleText(
+          'Вы уверены, что хотите удалить всю историю сканирований?',
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
-              _historyBloc.add(ClearHistoryEvent());
-              Navigator.of(context).pop();
-            },
-            child: const Text('Очистить'),
+          Row(
+            children: [
+              Expanded(
+                child: CommonWidgets.commonButton(
+                  text: 'Отмена',
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: CommonWidgets.commonButton(
+                  text: 'Очистить',
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                  onPressed: () {
+                    _historyBloc.add(ClearHistoryEvent());
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -80,130 +117,128 @@ class _HistoryTabState extends State<HistoryTab> {
   }
 
   void _navigateToDetail(BuildContext context, ScanHistoryItem item) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => HistoryDetailPage(item: item),
-      ),
-    );
+    if (widget.onItemTap != null) {
+      widget.onItemTap!(item);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _historyBloc,
-      child: BlocBuilder<HistoryBloc, HistoryState>(
-        builder: (context, state) {
-          if (state is HistoryInitial || state is HistoryLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
+    return SafeArea(
+      child: BlocProvider.value(
+        value: _historyBloc,
+        child: BlocBuilder<HistoryBloc, HistoryState>(
+          builder: (context, state) {
+            if (state is HistoryInitial || state is HistoryLoading) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
 
-          if (state is HistoryError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+            if (state is HistoryError) {
+              return CommonWidgets.errorWidget(
+                message: state.message,
+              );
+            }
+
+            if (state is HistoryEmpty) {
+              return Column(
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    color: Colors.red,
-                    size: 48,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    state.message,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      color: Colors.red,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _historyBloc.add(LoadHistoryEvent()),
-                    child: const Text('Повторить'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (state is HistoryEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.history,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'История пуста',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Здесь будут отображаться ваши предыдущие сканирования',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (state is HistoryLoaded) {
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'История сканирований',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: CommonWidgets.titleText(
+                            'История сканирования',
+                            textAlign: TextAlign.left,
+                          ),
                         ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => _showClearHistoryDialog(context),
-                        icon: const Icon(Icons.delete_forever),
-                        label: const Text('Очистить'),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: state.items.length,
-                    itemBuilder: (context, index) {
-                      final item = state.items[index];
-                      return HistoryItemCard(
-                        item: item,
-                        onTap: () => _navigateToDetail(context, item),
-                        onDelete: () =>
-                            _showDeleteConfirmationDialog(context, item.id),
-                      );
-                    },
+                  const Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.history,
+                            size: 64,
+                            color: AppColors.textSecondary,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'История пуста',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Здесь будут отображаться ваши сканирования',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            );
-          }
+                ],
+              );
+            }
 
-          return const Center(
-            child: Text('Неизвестное состояние'),
-          );
-        },
+            if (state is HistoryLoaded) {
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: CommonWidgets.titleText(
+                            'История сканирования',
+                            textAlign: TextAlign.left,
+                          ),
+                        ),
+                        CommonWidgets.commonButton(
+                          text: 'Очистить',
+                          onPressed: () => _showDeleteAllHistoryDialog(context),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      itemCount: state.items.length,
+                      itemBuilder: (context, index) {
+                        final item = state.items[index];
+                        return HistoryItemCard(
+                          item: item,
+                          onTap: () => _navigateToDetail(context, item),
+                          onDelete: () =>
+                              _showDeleteConfirmationDialog(context, item.id),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return const Center(
+              child: Text('Неизвестное состояние'),
+            );
+          },
+        ),
       ),
     );
   }
@@ -222,105 +257,133 @@ class HistoryItemCard extends StatelessWidget {
   });
 
   String _formatDate(DateTime date) {
-    return DateFormat('dd.MM.yyyy HH:mm').format(date);
+    return DateFormat('dd.MM.yyyy').format(date);
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isMelanoma = item.result.contains('меланом');
-    final Color statusColor = isMelanoma ? Colors.red : Colors.green;
+    final bool isHighRisk = item.result.toLowerCase().contains('высокая');
+    final bool isMediumRisk = item.result.toLowerCase().contains('возможны');
 
-    return Card(
+    final Color statusColor = isHighRisk
+        ? AppColors.riskHigh
+        : isMediumRisk
+            ? AppColors.riskMedium
+            : AppColors.riskLow;
+
+    return CommonWidgets.commonCard(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12.0),
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
+        borderRadius: BorderRadius.circular(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Место:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textForDetail,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        item.moleLocation ?? 'Не указано',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Text(
+                        'Результат:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textForDetail,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        item.result,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Text(
+                        'Дата:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textForDetail,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDate(item.timestamp),
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Stack(
+              children: [
+                CommonWidgets.commonImage(
+                  imagePath: item.imagePath,
                   width: 80,
                   height: 80,
-                  child: _buildImage(),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: statusColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isMelanoma
-                              ? 'Подозрение на меланому'
-                              : 'Признаков меланомы нет',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                          ),
-                        ),
-                      ],
+                Positioned(
+                  top: -6,
+                  right: -6,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: const BoxDecoration(
+                      color: AppColors.cardBackground,
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _formatDate(item.timestamp),
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: onDelete,
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        size: 20,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      item.result,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: onDelete,
-                color: Colors.grey,
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );
-  }
-
-  Widget _buildImage() {
-    try {
-      final file = File(item.imagePath);
-      return file.existsSync()
-          ? Image.file(
-              file,
-              fit: BoxFit.cover,
-            )
-          : Container(
-              color: Colors.grey[300],
-              child: const Icon(Icons.image_not_supported),
-            );
-    } catch (e) {
-      return Container(
-        color: Colors.grey[300],
-        child: const Icon(Icons.error),
-      );
-    }
   }
 }

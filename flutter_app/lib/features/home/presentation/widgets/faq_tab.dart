@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mr_mole/core/widgets/common_widgets.dart';
 
 class FAQTab extends StatelessWidget {
   const FAQTab({super.key});
@@ -17,14 +18,9 @@ class FAQTab extends StatelessWidget {
             'Для получения качественного снимка убедитесь, что: 1) Родинка находится в центре кадра, 2) Освещение равномерное, без теней, 3) Камера держится параллельно поверхности кожи, 4) Фокус настроен правильно.',
       ),
       FAQItem(
-        question: 'Что означают результаты анализа?',
-        answer:
-            'Приложение оценивает вероятность наличия подозрительных признаков в родинке по различным критериям. Результаты представлены в процентах и цветовой шкале. Зеленый цвет означает низкий риск, желтый - средний, красный - высокий риск потенциальных проблем.',
-      ),
-      FAQItem(
         question: 'Как часто нужно проверять родинки?',
         answer:
-            'Рекомендуется проверять родинки регулярно, примерно раз в 1-3 месяца, особенно если они находятся в местах, подверженных трению или солнечному воздействию. При обнаружении любых изменений обратитесь к дерматологу.',
+            'Рекомендуется проверять родинки регулярно, примерно раз в 3-6 месяца, особенно если они находятся в местах, подверженных трению или солнечному воздействию. При обнаружении любых изменений обратитесь к дерматологу.',
       ),
       FAQItem(
         question: 'Безопасны ли мои данные?',
@@ -33,48 +29,39 @@ class FAQTab extends StatelessWidget {
       ),
     ];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+    return SafeArea(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Center(
-            child: Text(
-              'Часто задаваемые вопросы',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          ...faqItems.map((item) => FAQExpansionTile(item: item)).toList(),
-          const SizedBox(height: 32),
-          const Center(
-            child: Text(
-              'Не нашли ответ на свой вопрос?',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: ElevatedButton.icon(
-              onPressed: () {
-                // В будущем здесь может быть реализован переход на страницу поддержки
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content:
-                        Text('Функция будет доступна в ближайшем обновлении'),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: CommonWidgets.titleText(
+                    'FAQ',
+                    textAlign: TextAlign.left,
                   ),
-                );
-              },
-              icon: const Icon(Icons.mail_outline),
-              label: const Text('Связаться с поддержкой'),
+                ),
+                CommonWidgets.commonButton(
+                  text: 'Поддержка',
+                  onPressed: () {},
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 32),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...faqItems.map((item) => FAQExpansionTile(item: item)),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -101,29 +88,17 @@ class FAQExpansionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return CommonWidgets.commonCard(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-        title: Text(
+        title: CommonWidgets.titleText(
           item.question,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
         ),
         children: [
-          Text(
+          CommonWidgets.subtitleText(
             item.answer,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.5,
-            ),
           ),
         ],
       ),

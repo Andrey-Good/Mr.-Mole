@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mr_mole/core/widgets/common_widgets.dart';
+import 'package:mr_mole/core/constants/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mr_mole/features/settings/presentation/bloc/settings_bloc.dart';
 
@@ -25,31 +28,15 @@ class _SettingsPageState extends State<SettingsPage> {
       future: _prefsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          return Scaffold(
+            body: CommonWidgets.loadingIndicator(),
           );
         }
 
         if (snapshot.hasError) {
           return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                  const SizedBox(height: 16),
-                  Text('Ошибка: ${snapshot.error}'),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _prefsFuture = SharedPreferences.getInstance();
-                      });
-                    },
-                    child: const Text('Повторить'),
-                  ),
-                ],
-              ),
+            body: CommonWidgets.errorWidget(
+              message: 'Ошибка: ${snapshot.error}',
             ),
           );
         }
@@ -58,68 +45,44 @@ class _SettingsPageState extends State<SettingsPage> {
           create: (context) =>
               SettingsBloc(snapshot.data!)..add(LoadSettingsEvent()),
           child: Scaffold(
-            appBar: AppBar(
-              leading: IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(
-                  Icons.arrow_back,
-                  size: 32,
-                  color: Colors.white,
-                ),
-              ),
-              backgroundColor: const Color(0xFF1b264a),
-              title: const Text(
-                'Настройки',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              centerTitle: true,
+            backgroundColor: AppColors.transparent,
+            extendBodyBehindAppBar: true,
+            appBar: CommonWidgets.commonAppBar(
+              title: 'Настройки',
+              onBackPressed: () => Navigator.pop(context),
             ),
-            body: BlocBuilder<SettingsBloc, SettingsState>(
-              builder: (context, state) {
-                if (state is SettingsLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+            body: CommonWidgets.backgroundGradient(
+              child: BlocBuilder<SettingsBloc, SettingsState>(
+                builder: (context, state) {
+                  if (state is SettingsLoading) {
+                    return CommonWidgets.loadingIndicator();
+                  }
 
-                if (state is SettingsError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  if (state is SettingsError) {
+                    return CommonWidgets.errorWidget(
+                      message: state.message,
+                    );
+                  }
+
+                  if (state is SettingsLoaded) {
+                    return ListView(
+                      padding: EdgeInsets.only(
+                        top: MediaQuery.of(context).padding.top +
+                            kToolbarHeight +
+                            16,
+                        left: 16.0,
+                        right: 16.0,
+                        bottom: 16.0,
+                      ),
                       children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 48,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(state.message),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () {
-                            context.read<SettingsBloc>().add(
-                                  LoadSettingsEvent(),
-                                );
-                          },
-                          child: const Text('Повторить'),
-                        ),
+                        _buildNotificationsSection(context, state),
                       ],
-                    ),
-                  );
-                }
+                    );
+                  }
 
-                if (state is SettingsLoaded) {
-                  return ListView(
-                    children: [
-                      _buildNotificationsSection(context, state),
-                    ],
-                  );
-                }
-
-                return const SizedBox();
-              },
+                  return const SizedBox();
+                },
+              ),
             ),
           ),
         );
@@ -129,100 +92,133 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildNotificationsSection(
       BuildContext context, SettingsLoaded state) {
-    return Column(
-      children: [
-        SwitchListTile(
-          secondary: const Icon(Icons.notifications, color: Color(0xFF1b264a)),
-          title: const Text('Уведомления'),
-          subtitle: const Text('Включить напоминания о проверке'),
-          value: state.notificationsEnabled,
-          onChanged: (value) {
-            context.read<SettingsBloc>().add(UpdateNotificationsEvent(value));
-          },
-        ),
-        if (state.notificationsEnabled)
-          ListTile(
-            leading: const Icon(Icons.timer, color: Color(0xFF1b264a)),
-            title: const Text('Интервал напоминаний'),
-            subtitle: Text(
-                _getNotificationDurationText(state.notificationDurationMonths)),
-            onTap: () => _showNotificationDurationDialog(context, state),
+    return CommonWidgets.commonCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Настройка уведомлений
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CommonWidgets.subtitleText(
+                'Уведомления',
+                textAlign: TextAlign.left,
+                color: AppColors.textPrimary,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  CommonWidgets.commonIcon(Icons.notifications),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Включить напоминания о проверке',
+                      textAlign: TextAlign.left,
+                      style: TextStyle(
+                        color: AppColors.textForDetail,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: state.notificationsEnabled,
+                    onChanged: (value) {
+                      context
+                          .read<SettingsBloc>()
+                          .add(UpdateNotificationsEvent(value));
+                    },
+                    activeColor: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+            ],
           ),
-      ],
-    );
-  }
 
-  void _showNotificationDurationDialog(
-      BuildContext context, SettingsLoaded state) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Интервал напоминаний'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<int>(
-              title: const Text('3 месяца'),
-              value: 3,
-              groupValue: state.notificationDurationMonths,
-              onChanged: (value) =>
-                  _updateNotificationDuration(context, state, value),
-            ),
-            RadioListTile<int>(
-              title: const Text('6 месяцев'),
-              value: 6,
-              groupValue: state.notificationDurationMonths,
-              onChanged: (value) =>
-                  _updateNotificationDuration(context, state, value),
-            ),
-            RadioListTile<int>(
-              title: const Text('9 месяцев'),
-              value: 9,
-              groupValue: state.notificationDurationMonths,
-              onChanged: (value) =>
-                  _updateNotificationDuration(context, state, value),
-            ),
-            RadioListTile<int>(
-              title: const Text('1 год'),
-              value: 12,
-              groupValue: state.notificationDurationMonths,
-              onChanged: (value) =>
-                  _updateNotificationDuration(context, state, value),
+          if (state.notificationsEnabled) ...[
+            const SizedBox(height: 24),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CommonWidgets.subtitleText(
+                  'Интервал напоминаний',
+                  textAlign: TextAlign.left,
+                  color: AppColors.textPrimary,
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CommonWidgets.commonIcon(Icons.timer),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: AppColors.buttonPrimary.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: CupertinoPicker(
+                          backgroundColor: AppColors.transparent,
+                          itemExtent: 40.0,
+                          scrollController: FixedExtentScrollController(
+                            initialItem: state.notificationDurationMonths - 1,
+                          ),
+                          onSelectedItemChanged: (index) {
+                            final durationValues = [
+                              1,
+                              2,
+                              3,
+                              4,
+                              5,
+                              6,
+                              7,
+                              8,
+                              9,
+                              10,
+                              11,
+                              12
+                            ];
+                            context.read<SettingsBloc>().add(
+                                  UpdateNotificationsEvent(
+                                    state.notificationsEnabled,
+                                    durationMonths: durationValues[index],
+                                  ),
+                                );
+                          },
+                          children: _getDurationLabels()
+                              .map((duration) => Center(
+                                    child: CommonWidgets.subtitleText(
+                                      duration,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  void _updateNotificationDuration(
-      BuildContext context, SettingsLoaded state, int? value) {
-    if (value != null) {
-      context.read<SettingsBloc>().add(
-            UpdateNotificationsEvent(
-              state.notificationsEnabled,
-              durationMonths: value,
-            ),
-          );
-      Navigator.pop(context);
-    }
-  }
-
-  String _getNotificationDurationText(int months) {
-    if (months == 12) {
-      return '1 год';
-    }
-    return '$months ${_getMonthText(months)}';
-  }
-
-  String _getMonthText(int months) {
-    if (months % 10 == 1 && months != 11) {
-      return 'месяц';
-    } else if ((months % 10 >= 2 && months % 10 <= 4) &&
-        !(months >= 12 && months <= 14)) {
-      return 'месяца';
-    } else {
-      return 'месяцев';
-    }
+  List<String> _getDurationLabels() {
+    return [
+      '1 месяц',
+      '2 месяца',
+      '3 месяца',
+      '4 месяца',
+      '5 месяцев',
+      '6 месяцев',
+      '7 месяцев',
+      '8 месяцев',
+      '9 месяцев',
+      '10 месяцев',
+      '11 месяцев',
+      '1 год'
+    ];
   }
 }
