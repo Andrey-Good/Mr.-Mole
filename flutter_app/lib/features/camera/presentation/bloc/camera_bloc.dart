@@ -219,7 +219,6 @@ class CameraBloc extends Bloc<CameraEvent, CameraState> {
         y: y,
         width: cropSize,
         height: cropSize,
-        resizeToModelSize: true,
       );
 
       emit(ImageCaptured(croppedPath, captureRect: _captureRect));

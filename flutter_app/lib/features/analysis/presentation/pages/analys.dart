@@ -125,11 +125,19 @@ class AnalysisScreen extends StatelessWidget {
                           bottom: 16.0,
                         ),
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.start,
                           children: [
+                            CommonWidgets.titleText(state.description),
                             const SizedBox(height: 32),
                             _buildImagePreview(),
                             const SizedBox(height: 32),
+                            const Text(
+                              'Результат анализа:',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppColors.textForDetail,
+                              ),
+                            ),
                             Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 16),
@@ -144,7 +152,6 @@ class AnalysisScreen extends StatelessWidget {
                                 _showSaveMoleDialog(context, state.result);
                               },
                             ),
-                            const SizedBox(height: 32),
                           ],
                         ),
                       );

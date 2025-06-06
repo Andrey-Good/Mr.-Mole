@@ -22,7 +22,7 @@ class MoleConfirmationScreen extends StatefulWidget {
 }
 
 class _MoleConfirmationScreenState extends State<MoleConfirmationScreen> {
-  final double _cropSquareSize = 250.0;
+  final double _cropSquareSize = 260.0;
   bool _isProcessing = false;
 
   Offset _squarePosition = Offset.zero;
@@ -221,7 +221,6 @@ class _MoleConfirmationScreenState extends State<MoleConfirmationScreen> {
       y: y,
       width: cropSize,
       height: cropSize,
-      resizeToModelSize: true,
     );
   }
 }

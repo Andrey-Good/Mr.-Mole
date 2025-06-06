@@ -4,7 +4,7 @@ import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 
 class ImageProcessor {
-  static const int modelSize = 224;
+  static const int modelSize = 260;
 
   static Future<String> cropByCoordinates({
     required String imagePath,
@@ -12,7 +12,6 @@ class ImageProcessor {
     required int y,
     required int width,
     required int height,
-    bool resizeToModelSize = true,
   }) async {
     try {
       final File imageFile = File(imagePath);
@@ -36,14 +35,12 @@ class ImageProcessor {
         height: safeH,
       );
 
-      if (resizeToModelSize) {
-        croppedImage = img.copyResize(
-          croppedImage,
-          width: modelSize,
-          height: modelSize,
-          interpolation: img.Interpolation.cubic,
-        );
-      }
+      croppedImage = img.copyResize(
+        croppedImage,
+        width: modelSize,
+        height: modelSize,
+        interpolation: img.Interpolation.cubic,
+      );
 
       final Directory tempDir = await getTemporaryDirectory();
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();

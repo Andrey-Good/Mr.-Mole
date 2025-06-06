@@ -5,8 +5,6 @@ class ModelCache {
   static Interpreter? _interpreter;
   static int _usersCount = 0;
   static bool _isInitializing = false;
-  static const int _maxRetries = 3;
-  static const Duration _retryDelay = Duration(seconds: 1);
 
   static void _resetState() {
     _interpreter = null;
@@ -21,7 +19,6 @@ class ModelCache {
     }
 
     if (_isInitializing) {
-      await Future.delayed(_retryDelay);
       if (_isInitializing) {
         _resetState();
       }
@@ -29,46 +26,29 @@ class ModelCache {
     }
 
     _isInitializing = true;
-    int retryCount = 0;
 
-    while (retryCount < _maxRetries) {
-      try {
-        try {
-          final modelData = await rootBundle.load(assetPath);
+    final modelData = await rootBundle.load(assetPath);
 
-          if (modelData.lengthInBytes == 0) {
-            throw Exception('Файл модели пуст');
-          }
-
-          final modelBytes = Uint8List.fromList(modelData.buffer.asUint8List());
-          _interpreter = Interpreter.fromBuffer(modelBytes);
-        } catch (e) {
-          _interpreter = await Interpreter.fromAsset(assetPath);
-        }
-
-        if (_interpreter == null) {
-          throw Exception('Не удалось загрузить модель');
-        }
-
-        if (!_interpreter!.isAllocated) {
-          throw Exception('Модель не инициализирована');
-        }
-
-        _usersCount++;
-        _isInitializing = false;
-        return _interpreter;
-      } catch (e) {
-        retryCount++;
-
-        if (retryCount < _maxRetries) {
-          await Future.delayed(_retryDelay);
-        } else {
-          _resetState();
-        }
-      }
+    if (modelData.lengthInBytes == 0) {
+      throw Exception('Файл модели пуст');
     }
 
-    return null;
+    final modelBytes = Uint8List.fromList(modelData.buffer.asUint8List());
+    _interpreter = Interpreter.fromBuffer(modelBytes);
+
+    _interpreter = await Interpreter.fromAsset(assetPath);
+
+    if (_interpreter == null) {
+      throw Exception('Не удалось загрузить модель');
+    }
+
+    if (!_interpreter!.isAllocated) {
+      throw Exception('Модель не инициализирована');
+    }
+
+    _usersCount++;
+    _isInitializing = false;
+    return _interpreter;
   }
 
   static void release() {

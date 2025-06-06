@@ -42,7 +42,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         }
 
         final extension = photo.path.split('.').last.toLowerCase();
-        if (!['jpg', 'jpeg', 'png'].contains(extension)) {
+        if (!['jpg', 'jpeg', 'png', 'webp'].contains(extension)) {
           throw Exception('Неподдерживаемый формат изображения');
         }
 

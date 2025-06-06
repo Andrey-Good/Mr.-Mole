@@ -83,14 +83,20 @@ class AnalysisBloc extends Bloc<AnalysisEvent, AnalysisState> {
       _interpreter!.run(inputBuffer.buffer, outputBuffer.buffer);
 
       final probability = outputBuffer[0];
-      final result = probability < 0.3
-          ? 'Отрицательный.'
-          : probability < 0.7
-              ? 'Возможны признаки меланомы. Рекомендуется консультация врача.'
-              : 'Высокая вероятность меланомы. Срочно обратитесь к врачу!';
+      final result = probability < 0.266
+          ? 'Отрицательный'
+          : probability < 0.316
+              ? 'Возможны признаки меланомы'
+              : 'Высокая вероятность меланомы';
+
+      final description = probability < 0.266
+          ? 'Поздравляем!!! Вы еще поживете'
+          : probability < 0.316
+              ? 'Не пугайтесь. Шанс выживания на ранней стадии рака 96%'
+              : 'Срочно обратитесь к врачу';
 
       if (!isClosed) {
-        emit(AnalysisSuccess(result));
+        emit(AnalysisSuccess(result, description));
       }
     } catch (e) {
       if (!isClosed) {

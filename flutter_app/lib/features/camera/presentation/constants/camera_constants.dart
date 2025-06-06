@@ -1,7 +1,7 @@
 class CameraConstants {
   static const double captureFrameSizePercent = 0.7;
 
-  static const double modelImageSize = 224.0;
+  static const double modelImageSize = 260.0;
 
   static const double frameStrokeWidth = 1.0;
 

@@ -165,7 +165,7 @@ class _HistoryTabState extends State<HistoryTab> {
                           Icon(
                             Icons.history,
                             size: 64,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textPrimary,
                           ),
                           SizedBox(height: 16),
                           Text(
@@ -316,14 +316,16 @@ class HistoryItemCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        item.result,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: statusColor,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          item.result,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -333,7 +335,7 @@ class HistoryItemCard extends StatelessWidget {
                       const Text(
                         'Дата:',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 14,
                           color: AppColors.textForDetail,
                         ),
                       ),

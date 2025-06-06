@@ -12,12 +12,13 @@ class AnalysisInitial extends AnalysisState {}
 class AnalysisLoading extends AnalysisState {}
 
 class AnalysisSuccess extends AnalysisState {
-  final String result;
+  final String _result;
+  final String _description;
 
-  const AnalysisSuccess(this.result);
+  const AnalysisSuccess(this._result, this._description);
 
-  @override
-  List<Object> get props => [result];
+  String get result => _result;
+  String get description => _description;
 }
 
 class AnalysisError extends AnalysisState {
