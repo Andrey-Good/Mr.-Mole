@@ -19,6 +19,9 @@ class AnalysisSuccess extends AnalysisState {
 
   String get result => _result;
   String get description => _description;
+
+  @override
+  List<Object> get props => [_result, _description];
 }
 
 class AnalysisError extends AnalysisState {
