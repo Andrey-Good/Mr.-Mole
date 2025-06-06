@@ -44,3 +44,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /assets/model.tflite
+# Large model files
+assets/model.tflite
